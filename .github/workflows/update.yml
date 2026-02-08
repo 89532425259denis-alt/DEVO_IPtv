@@ -1,0 +1,35 @@
+name: Update My IPTV
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Обновление каждые 6 часов
+  workflow_dispatch:      # Кнопка для ручного запуска
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get Channels
+        run: |
+          # Скачиваем базы
+          curl -L https://iptv-org.github.io/iptv/countries/ru.m3u > russia.m3u
+          curl -L https://iptv-org.github.io/iptv/index.m3u > global.m3u
+          
+          # Создаем заголовок
+          echo "#EXTM3U" > personal_list.m3u
+          
+          # Собираем каналы
+          cat russia.m3u | grep -v "#EXTM3U" >> personal_list.m3u
+          grep -A 1 "TV1000" global.m3u >> personal_list.m3u
+          grep -A 1 "Minimax" global.m3u >> personal_list.m3u
+          grep -i -A 1 "Cartoon" global.m3u >> personal_list.m3u
+          grep -i -A 1 "Disney" global.m3u >> personal_list.m3u
+          grep -i -A 1 "Nickelodeon" global.m3u >> personal_list.m3u
+          
+      - name: Save Playlist
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "AutoUpdater"
+          git add personal_list.m3u
+          git commit -m "Updated channels" || exit 0
+          git push
