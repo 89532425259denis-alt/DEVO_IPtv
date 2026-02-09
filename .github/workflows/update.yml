@@ -1,8 +1,8 @@
 name: Update My Mega IPTV
 on:
   schedule:
-    - cron: '0 */4 * * *' # Запуск каждые 4 часа
-  workflow_dispatch:      # Кнопка ручного запуска
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,14 +14,10 @@ jobs:
 
       - name: Fetch and Filter
         run: |
-          # --- 1. ЗАГРУЗКА ИСТОЧНИКОВ ---
-          # Скачиваем основные базы + дополнительные потоки для лучшего поиска
+          # 1. Скачиваем источники
           curl -sL https://iptv-org.github.io/iptv/index.m3u > global.m3u
           curl -sL https://iptv-org.github.io/iptv/countries/ru.m3u > russia.m3u
-          # Добавляем список прямых потоков (тут часто больше рабочих ссылок)
           curl -sL https://raw.githubusercontent.com/iptv-org/iptv/master/streams/ru.m3u > streams_ru.m3u
-          
-          # Скачиваем категории
           curl -sL https://iptv-org.github.io/iptv/categories/movies.m3u > movies.m3u
           curl -sL https://iptv-org.github.io/iptv/categories/animation.m3u > animation.m3u
           curl -sL https://iptv-org.github.io/iptv/categories/sports.m3u > sports.m3u
@@ -29,55 +25,46 @@ jobs:
           curl -sL https://iptv-org.github.io/iptv/categories/education.m3u > education.m3u
           curl -sL https://iptv-org.github.io/iptv/categories/entertainment.m3u > entertainment.m3u
 
-          # Объединяем ВСЁ в один файл source.tmp
+          # 2. Объединяем
           cat global.m3u russia.m3u streams_ru.m3u movies.m3u animation.m3u sports.m3u documentary.m3u education.m3u entertainment.m3u > source.tmp
 
-          # Создаем заголовок итогового файла
+          # 3. Создаем файл
           echo "#EXTM3U" > personal_list.m3u
 
-          # --- ФУНКЦИЯ ПОИСКА ---
-          # $1 - поисковый запрос (regex)
+          # 4. Функция поиска
           find_channels() {
-            # grep ищет название, берет следующую строку (-A 1), убирает разделители групп и "мусор"
             grep -i -E "$1" source.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> personal_list.m3u
           }
 
-          # --- БЛОК 1: ИНФОРМАЦИОННЫЕ ---
+          # 5. Поиск каналов
           echo "Processing News..."
           find_channels "Первый канал|Россия 1|Россия 24|Planeta RTR|МИР|НТВ|ТВ ЦЕНТР|ТВ Центр|RTVI|OTP|ОТР|Москва Доверие|Центральное телевидение|5 Канал|Пятый канал|Крым 24|РБК|Спас|EuroNews|CNN|Fox News|ABC|BBC|France 24|CNBC|Настоящее время|Дождь|RTД|RTVi"
 
-          # --- БЛОК 2: КИНО И СЕРИАЛЫ (Обновлено: Viju, TV1000, CineMan) ---
           echo "Processing Movies..."
-          # Обрати внимание на 'TV\s?1000' - найдет и TV1000 и TV 1000
           find_channels "Viju|TV\s?1000|TV1000|CineMan|MiniMax|GoldLine|Amedia|START|KION|Dizi|Megahit|Premiere|Comedy|Serial|FOX|Hollywood|Bollywood|FilmBox|TV XXI|FlixSnip|Мосфильм|Золотая коллекция|Детектив|Русский роман|Наше Новое Кино|Родное кино|Дом Кино|Кино ТВ|Феникс|Мир сериала|Русский Иллюзион|Русский бестселлер|Кинохит|Киномикс|Киносвидание|Кинокомедия|Киносерия|Киносемья|Кинопремьера|Киноужас|Кинопоказ|Индийское кино|Мужское кино|Настоящее страшное|Еврокино|Иллюзион|sci-fi|black|red|Любимое|Лавстори|Про Любовь|Романтичное|Страшное|Премиальное|Душевное|Шокирующее|Остросюжетное|Комедийное|Сапфир|Zee TV|Shot|FAN|Star|О! Кино|Комедия|Кинеко|Kinoliving|Scream|Дорама|Блокбастер|Хит|Marvel|Триллер|Сваты|VHS|Боевик|Ужасы|Роскино|Киберпанк"
 
-          # --- БЛОК 3: ПОЗНАВАТЕЛЬНЫЕ ---
           echo "Processing Education..."
           find_channels "Animal Planet|Discovery|National Geographic|Nat Geo|Моя Планета|Nature|В мире животных|Наука|Галактики|Космический|История|History|Travel|Explore|RTG|365 Дней|Телепутешествия|Приключения|ЕДА|Кухня|Food|Телекафе|Охота|Рыбалка|Трофей|Авто|Техно|TLC|Доктор|Здоровое|Психология|Усадьба|English Club|Fashion"
 
-          # --- БЛОК 4: СПОРТИВНЫЕ ---
           echo "Processing Sports..."
           find_channels "Матч|Футбол|Setanta|UDAR|MMA|Бокс|Хоккей|KHL|КХЛ|NBA|Eurosport|Sky Sports|Extreme|ESPN|Viasat Sport|Конный"
 
-          # --- БЛОК 5: РАЗВЛЕКАТЕЛЬНЫЕ ---
           echo "Processing Entertainment..."
           find_channels "СТС|ТНТ|РЕН|Пятница|Суббота|Ю|ТВ 3|ТВ3|ЧЕ|КВН|Ностальгия|Ретро|Домашний|Перец|Квартал|Сарафан|Лапки|Театр|Капитан Фантастика"
 
-          # --- БЛОК 6: ДЕТСКИЕ ---
           echo "Processing Kids..."
           find_channels "Мультимузыка|Cartoon|Nickelodeon|Nick|TiJi|2x2|Солнце|Мульт|КиноМульт|Мультиландия|Карусель|Уникум|Gulli|Лёва|В гостях у сказки|Мама|CTC Kids|Рыжий|Ani"
 
-          # --- БЛОК 7: 4K / UHD ---
           echo "Processing 4K/UHD..."
           find_channels "4K|UHD|Ultra"
 
-          # Удаляем временные файлы
-          rm *.m3u *.tmp
+          # 6. Удаляем мусор (НЕ удаляя personal_list.m3u)
+          rm global.m3u russia.m3u streams_ru.m3u movies.m3u animation.m3u sports.m3u documentary.m3u education.m3u entertainment.m3u source.tmp
 
       - name: Save and Push
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "AutoUpdater"
           git add personal_list.m3u
-          git commit -m "Updated Playlist: Added Viju, CineMan, TV1000" || echo "No changes to commit"
+          git commit -m "Updated Playlist" || echo "No changes to commit"
           git push
