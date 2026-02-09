@@ -1,8 +1,8 @@
 name: Update My Mega IPTV
 on:
   schedule:
-    - cron: '0 */4 * * *' # Авто-запуск каждые 4 часа
-  workflow_dispatch:      # Кнопка ручного запуска
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,39 +14,30 @@ jobs:
 
       - name: Fetch and Filter
         run: |
-          # 1. НАСТРОЙКА МАСКИРОВКИ (User-Agent)
+          # 1. Настройка маскировки (чтобы сайты думали, что мы браузер)
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          # 2. ЗАГРУЗКА ИСТОЧНИКОВ (Собраны те, где есть Viju, CineMan, TV1000)
-          echo "Downloading sources..."
-          curl -A "$UA" -sL "https://iptvmaster.ru/iptv-viju.m3u" > source1.tmp
-          curl -A "$UA" -sL "https://smarttvnews.ru/apps/iptvchannels.m3u" > source2.tmp
-          curl -A "$UA" -sL "https://raw.githubusercontent.com/yurets-v/iptv/master/iptv.m3u" > source3.tmp
-          curl -A "$UA" -sL "https://webarmen.com/my/iptv/auto.m3u" > source4.tmp
-          curl -A "$UA" -sL "https://iptv-org.github.io/iptv/countries/ru.m3u" > source5.tmp
+          # 2. Скачивание источников (используем || true, чтобы ошибка одного сайта не ломала весь процесс)
+          curl -A "$UA" -sL "https://iptvmaster.ru/iptv-viju.m3u" > s1.tmp || true
+          curl -A "$UA" -sL "https://smarttvnews.ru/apps/iptvchannels.m3u" > s2.tmp || true
+          curl -A "$UA" -sL "https://webarmen.com/my/iptv/auto.m3u" > s3.tmp || true
+          curl -A "$UA" -sL "https://raw.githubusercontent.com/yurets-v/iptv/master/iptv.m3u" > s4.tmp || true
+          curl -A "$UA" -sL "https://iptv-org.github.io/iptv/countries/ru.m3u" > s5.tmp || true
 
-          # Объединяем всё в один массив данных
-          cat source1.tmp source2.tmp source3.tmp source4.tmp source5.tmp > raw_base.tmp
+          # Объединяем всё в одну кучу
+          cat s1.tmp s2.tmp s3.tmp s4.tmp s5.tmp > all_sources.tmp
 
-          # 3. ПОИСК КАНАЛОВ (Автоматическая фильтрация)
+          # 3. Создаем файл плейлиста
           echo "#EXTM3U" > personal_list.m3u
 
-          # Функция для поиска (берет название и ссылку)
-          find_channels() {
-            grep -i -E "$1" raw_base.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> temp_list.tmp
-          }
+          # 4. Поиск каналов (Простой и надежный метод)
+          # Ищем Кино (Viju, TV1000, CineMan)
+          grep -i -E "Viju|TV\s?1000|CineMan|Minimax|Amedia|START|KION|Dizi|Кинохит|Премьера|Киносемья|Кинокомедия|Megahit|Premiere|Hollywood|TV XXI|GoldLine" all_sources.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> personal_list.m3u
 
-          echo "Searching for Premium Movies..."
-          find_channels "Viju|TV\s?1000|CineMan|Minimax|Amedia|START|KION|Dizi|Кинохит|Премьера|Киносемья|Киномикс|Киносерия|Кинокомедия|Megahit|Premiere|Hollywood|TV XXI|GoldLine"
+          # Ищем Остальные (Спорт, Детские, Федеральные)
+          grep -i -E "Первый канал|Россия 1|Россия 24|НТВ|Матч|Футбол|Discovery|Animal Planet|Nat Geo|СТС|ТНТ|Пятница|2x2|Мульт|Карусель|4K|UHD" all_sources.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> personal_list.m3u
 
-          echo "Searching for General Channels..."
-          find_channels "Первый канал|Россия 1|Россия 24|НТВ|Матч|Футбол|Discovery|Animal Planet|Nat Geo|СТС|ТНТ|Пятница|2x2|Мульт|Карусель|4K|UHD"
-
-          # 4. АВТОМАТИЧЕСКАЯ ОЧИСТКА ДУБЛИКАТОВ
-          # Оставляет только уникальные ссылки (чтобы не было 10 штук CineMan)
-          awk '/#EXTINF/ {info=$0; next} {if (!seen[$0]++) {print info; print $0}}' temp_list.tmp >> personal_list.m3u
-
-          # 5. УДАЛЕНИЕ ВРЕМЕННЫХ ФАЙЛОВ
+          # Удаляем мусор
           rm *.tmp
 
       - name: Save and Push
@@ -54,6 +45,5 @@ jobs:
           git config --local user.email "actions@github.com"
           git config --local user.name "AutoUpdater"
           git add personal_list.m3u
-          # Если изменений нет, скрипт просто завершится без ошибки
-          git commit -m "Auto-update: $(date +'%Y-%m-%d %H:%M')" || echo "No changes"
+          git commit -m "Auto-update playlist" || echo "No changes to commit"
           git push
