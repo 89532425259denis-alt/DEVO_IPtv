@@ -1,7 +1,7 @@
-name: Update My Ultimate IPTV
+name: Update My Mega IPTV
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */4 * * *' # Обновляем каждые 4 часа, чтобы токены не успели умереть
   workflow_dispatch:
 
 jobs:
@@ -11,39 +11,40 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch and Filter
+      - name: Fetch and Filter All Categories
         run: |
-          # 1. Загружаем основные базы данных
-          curl -L https://iptv-org.github.io/iptv/countries/ru.m3u > ru.m3u
+          # 1. Загружаем несколько разных баз для надежности
           curl -L https://iptv-org.github.io/iptv/index.m3u > global.m3u
+          curl -L https://iptv-org.github.io/iptv/countries/ru.m3u > russia.m3u
           
-          # 2. Создаем заголовок нового плейлиста
+          # 2. Создаем чистый плейлист
           echo "#EXTM3U" > personal_list.m3u
           
-          # 3. ФИЛЬТРАЦИЯ (Ищем все твои категории)
+          # 3. ФИЛЬТРАЦИЯ ПО ТВОИМ КАТЕГОРИЯМ
+          # Мы используем список ключевых слов из твоего запроса
           
-          # Категория: Информационные и Федеральные
-          grep -iE "Первый|Россия|НТВ|МИР|ТВ Центр|RTVI|OTP|Доверие|5 Канал|РБК|Спас|EuroNews|CNN|Fox News|ABC|BBC|France 24|CNBC|Дождь" ru.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
+          # КИНО, СЕРИАЛЫ И VIJU
+          grep -iE "Viju|TV 1000|Action|Premiere|Megahit|Comedy|Serial|FOX|Hollywood|Bollywood|FilmBox|TV XXI|START|НТВ Сериал|Мосфильм|Кинохит|Киномикс|Киносерия|Amedia|Shot TV|KION" global.m3u russia.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
           
-          # Категория: Кино и Сериалы (Viju, TV1000, FOX, Amedia, Кинохит и др.)
-          grep -iE "Viju|TV 1000|Action|FOX|Comedy Central|Hollywood|Bollywood|FilmBox|TV XXI|START|Мосфильм|Русский|Кино|Иллюзион|Dizi|Amedia|Shot TV|KION|Kinoliving|Scream" ru.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
+          # ИНФОРМАЦИОННЫЕ И ФЕДЕРАЛЬНЫЕ
+          grep -iE "Первый канал|Россия 1|Россия 24|Planeta RTR|МИР|НТВ|ТВ Центр|RTVI|OTP|Доверие|5 Канал|РБК|Спас|EuroNews|CNN|ABC|BBC|France 24" russia.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
           
-          # Категория: Познавательные (Nature, Science, Discovery, Хобби)
-          grep -iE "Animal Planet|Discovery|National Geographic|Wild|Планета|Наука|История|History|Travel|Explore|RTG|Еда|Кухня|Fishing|Рыбалка|Авто Плюс|TLC|Доктор|English Club" ru.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
+          # СПОРТ (Матч, Футбол, Eurosport)
+          grep -iE "Матч|Футбол|Setanta|UDAR|MMA|Бокс|Хоккей|KHL|NBA|Eurosport|Sky Sports|Viasat Sport" global.m3u russia.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
           
-          # Категория: Спортивные (Матч, Футбол, Setanta, Eurosport, Боец)
-          grep -iE "Матч|Футбол|Setanta|UDAR|MMA|Бокс|Хоккей|KHL|NBA|Eurosport|Sky Sports|Extreme|ESPN|Viasat Sport" ru.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
+          # ДЕТСКИЕ И РАЗВЛЕКАТЕЛЬНЫЕ
+          grep -iE "Cartoon|Nickelodeon|Nick|Disney|Мульт|Карусель|TiJi|2x2|Солнце|СТС|ТНТ|Пятница|Ю|ТВ 3|ЧЕ" global.m3u russia.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
           
-          # Категория: Развлекательные и Детские
-          grep -iE "СТС|ТНТ|РЕН ТВ|Пятница|Суббота|Ю|ТВ 3|ЧЕ|КВН|Cartoon|Nickelodeon|Nick|Disney|Мульт|Карусель|TiJi|2x2|Солнце|Gulli" ru.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
+          # ПОЗНАВАТЕЛЬНЫЕ
+          grep -iE "Animal Planet|Discovery|National Geographic|Wild|Моя Планета|Наука|История|History|Travel|Explore|Охота|Рыбалка|TLC" global.m3u russia.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
           
-          # Категория: 4K, UHD и Спец. подборки (CineMan, MiniMax)
-          grep -iE "4K|UHD|CineMan|MiniMax|Ultra|NASA|Museum" ru.m3u global.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
+          # 4K, UHD, CINEMAN, MINIMAX
+          grep -iE "4K|UHD|Ultra|CineMan|MiniMax|GoldLine|NASA|Museum" global.m3u russia.m3u | grep -v "http" -A 1 | grep -v "\--" >> personal_list.m3u
 
       - name: Save Playlist
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "AutoUpdater"
           git add personal_list.m3u
-          git commit -m "Full channel update: Movies, Sports, Kids, 4K" || exit 0
+          git commit -m "Updated all channels from the big list" || exit 0
           git push
