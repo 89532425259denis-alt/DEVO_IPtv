@@ -1,8 +1,8 @@
 name: Update My Mega IPTV
 on:
   schedule:
-    - cron: '0 */4 * * *'
-  workflow_dispatch:
+    - cron: '0 */4 * * *' # Авто-запуск каждые 4 часа
+  workflow_dispatch:      # Кнопка ручного запуска
 
 jobs:
   build:
@@ -14,57 +14,46 @@ jobs:
 
       - name: Fetch and Filter
         run: |
-          # 1. Скачиваем источники
-          curl -sL https://iptv-org.github.io/iptv/index.m3u > global.m3u
-          curl -sL https://iptv-org.github.io/iptv/countries/ru.m3u > russia.m3u
-          curl -sL https://raw.githubusercontent.com/iptv-org/iptv/master/streams/ru.m3u > streams_ru.m3u
-          curl -sL https://iptv-org.github.io/iptv/categories/movies.m3u > movies.m3u
-          curl -sL https://iptv-org.github.io/iptv/categories/animation.m3u > animation.m3u
-          curl -sL https://iptv-org.github.io/iptv/categories/sports.m3u > sports.m3u
-          curl -sL https://iptv-org.github.io/iptv/categories/documentary.m3u > documentary.m3u
-          curl -sL https://iptv-org.github.io/iptv/categories/education.m3u > education.m3u
-          curl -sL https://iptv-org.github.io/iptv/categories/entertainment.m3u > entertainment.m3u
+          # 1. НАСТРОЙКА МАСКИРОВКИ (User-Agent)
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          # 2. Объединяем
-          cat global.m3u russia.m3u streams_ru.m3u movies.m3u animation.m3u sports.m3u documentary.m3u education.m3u entertainment.m3u > source.tmp
+          # 2. ЗАГРУЗКА ИСТОЧНИКОВ (Собраны те, где есть Viju, CineMan, TV1000)
+          echo "Downloading sources..."
+          curl -A "$UA" -sL "https://iptvmaster.ru/iptv-viju.m3u" > source1.tmp
+          curl -A "$UA" -sL "https://smarttvnews.ru/apps/iptvchannels.m3u" > source2.tmp
+          curl -A "$UA" -sL "https://raw.githubusercontent.com/yurets-v/iptv/master/iptv.m3u" > source3.tmp
+          curl -A "$UA" -sL "https://webarmen.com/my/iptv/auto.m3u" > source4.tmp
+          curl -A "$UA" -sL "https://iptv-org.github.io/iptv/countries/ru.m3u" > source5.tmp
 
-          # 3. Создаем файл
+          # Объединяем всё в один массив данных
+          cat source1.tmp source2.tmp source3.tmp source4.tmp source5.tmp > raw_base.tmp
+
+          # 3. ПОИСК КАНАЛОВ (Автоматическая фильтрация)
           echo "#EXTM3U" > personal_list.m3u
 
-          # 4. Функция поиска
+          # Функция для поиска (берет название и ссылку)
           find_channels() {
-            grep -i -E "$1" source.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> personal_list.m3u
+            grep -i -E "$1" raw_base.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> temp_list.tmp
           }
 
-          # 5. Поиск каналов
-          echo "Processing News..."
-          find_channels "Первый канал|Россия 1|Россия 24|Planeta RTR|МИР|НТВ|ТВ ЦЕНТР|ТВ Центр|RTVI|OTP|ОТР|Москва Доверие|Центральное телевидение|5 Канал|Пятый канал|Крым 24|РБК|Спас|EuroNews|CNN|Fox News|ABC|BBC|France 24|CNBC|Настоящее время|Дождь|RTД|RTVi"
+          echo "Searching for Premium Movies..."
+          find_channels "Viju|TV\s?1000|CineMan|Minimax|Amedia|START|KION|Dizi|Кинохит|Премьера|Киносемья|Киномикс|Киносерия|Кинокомедия|Megahit|Premiere|Hollywood|TV XXI|GoldLine"
 
-          echo "Processing Movies..."
-          find_channels "Viju|TV\s?1000|TV1000|CineMan|MiniMax|GoldLine|Amedia|START|KION|Dizi|Megahit|Premiere|Comedy|Serial|FOX|Hollywood|Bollywood|FilmBox|TV XXI|FlixSnip|Мосфильм|Золотая коллекция|Детектив|Русский роман|Наше Новое Кино|Родное кино|Дом Кино|Кино ТВ|Феникс|Мир сериала|Русский Иллюзион|Русский бестселлер|Кинохит|Киномикс|Киносвидание|Кинокомедия|Киносерия|Киносемья|Кинопремьера|Киноужас|Кинопоказ|Индийское кино|Мужское кино|Настоящее страшное|Еврокино|Иллюзион|sci-fi|black|red|Любимое|Лавстори|Про Любовь|Романтичное|Страшное|Премиальное|Душевное|Шокирующее|Остросюжетное|Комедийное|Сапфир|Zee TV|Shot|FAN|Star|О! Кино|Комедия|Кинеко|Kinoliving|Scream|Дорама|Блокбастер|Хит|Marvel|Триллер|Сваты|VHS|Боевик|Ужасы|Роскино|Киберпанк"
+          echo "Searching for General Channels..."
+          find_channels "Первый канал|Россия 1|Россия 24|НТВ|Матч|Футбол|Discovery|Animal Planet|Nat Geo|СТС|ТНТ|Пятница|2x2|Мульт|Карусель|4K|UHD"
 
-          echo "Processing Education..."
-          find_channels "Animal Planet|Discovery|National Geographic|Nat Geo|Моя Планета|Nature|В мире животных|Наука|Галактики|Космический|История|History|Travel|Explore|RTG|365 Дней|Телепутешествия|Приключения|ЕДА|Кухня|Food|Телекафе|Охота|Рыбалка|Трофей|Авто|Техно|TLC|Доктор|Здоровое|Психология|Усадьба|English Club|Fashion"
+          # 4. АВТОМАТИЧЕСКАЯ ОЧИСТКА ДУБЛИКАТОВ
+          # Оставляет только уникальные ссылки (чтобы не было 10 штук CineMan)
+          awk '/#EXTINF/ {info=$0; next} {if (!seen[$0]++) {print info; print $0}}' temp_list.tmp >> personal_list.m3u
 
-          echo "Processing Sports..."
-          find_channels "Матч|Футбол|Setanta|UDAR|MMA|Бокс|Хоккей|KHL|КХЛ|NBA|Eurosport|Sky Sports|Extreme|ESPN|Viasat Sport|Конный"
-
-          echo "Processing Entertainment..."
-          find_channels "СТС|ТНТ|РЕН|Пятница|Суббота|Ю|ТВ 3|ТВ3|ЧЕ|КВН|Ностальгия|Ретро|Домашний|Перец|Квартал|Сарафан|Лапки|Театр|Капитан Фантастика"
-
-          echo "Processing Kids..."
-          find_channels "Мультимузыка|Cartoon|Nickelodeon|Nick|TiJi|2x2|Солнце|Мульт|КиноМульт|Мультиландия|Карусель|Уникум|Gulli|Лёва|В гостях у сказки|Мама|CTC Kids|Рыжий|Ani"
-
-          echo "Processing 4K/UHD..."
-          find_channels "4K|UHD|Ultra"
-
-          # 6. Удаляем мусор (НЕ удаляя personal_list.m3u)
-          rm global.m3u russia.m3u streams_ru.m3u movies.m3u animation.m3u sports.m3u documentary.m3u education.m3u entertainment.m3u source.tmp
+          # 5. УДАЛЕНИЕ ВРЕМЕННЫХ ФАЙЛОВ
+          rm *.tmp
 
       - name: Save and Push
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "AutoUpdater"
           git add personal_list.m3u
-          git commit -m "Updated Playlist" || echo "No changes to commit"
+          # Если изменений нет, скрипт просто завершится без ошибки
+          git commit -m "Auto-update: $(date +'%Y-%m-%d %H:%M')" || echo "No changes"
           git push
