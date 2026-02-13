@@ -1,12 +1,14 @@
 name: Update My IPTV
 on:
   schedule:
-    - cron: '0 */2 * * *' # Обновление каждые 2 часа
-  workflow_dispatch: # Позволяет запустить вручную кнопкой
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
 
 jobs:
   update_list:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Явно разрешаем запись в этот репозиторий
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,9 +25,11 @@ jobs:
         run: python generator.py
 
       - name: Save Playlist to Repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "NetErrror_Bot"
           git config --global user.email "bot@neterror.sys"
           git add playlist.m3u
-          git commit -m "Playlist Updated with Premium Channels" || exit 0
-          git push
+          git commit -m "Playlist Updated" || exit 0
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
