@@ -1,49 +1,31 @@
-name: Update My Mega IPTV
+name: Update My IPTV
 on:
   schedule:
-    - cron: '0 */4 * * *'
-  workflow_dispatch:
+    - cron: '0 */2 * * *' # Обновление каждые 2 часа
+  workflow_dispatch: # Позволяет запустить вручную кнопкой
 
 jobs:
-  build:
+  update_list:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Fetch and Filter
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Generator
+        run: python generator.py
+
+      - name: Save Playlist to Repo
         run: |
-          # 1. Настройка маскировки (чтобы сайты думали, что мы браузер)
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-          # 2. Скачивание источников (используем || true, чтобы ошибка одного сайта не ломала весь процесс)
-          curl -A "$UA" -sL "https://iptvmaster.ru/iptv-viju.m3u" > s1.tmp || true
-          curl -A "$UA" -sL "https://smarttvnews.ru/apps/iptvchannels.m3u" > s2.tmp || true
-          curl -A "$UA" -sL "https://webarmen.com/my/iptv/auto.m3u" > s3.tmp || true
-          curl -A "$UA" -sL "https://raw.githubusercontent.com/yurets-v/iptv/master/iptv.m3u" > s4.tmp || true
-          curl -A "$UA" -sL "https://iptv-org.github.io/iptv/countries/ru.m3u" > s5.tmp || true
-
-          # Объединяем всё в одну кучу
-          cat s1.tmp s2.tmp s3.tmp s4.tmp s5.tmp > all_sources.tmp
-
-          # 3. Создаем файл плейлиста
-          echo "#EXTM3U" > personal_list.m3u
-
-          # 4. Поиск каналов (Простой и надежный метод)
-          # Ищем Кино (Viju, TV1000, CineMan)
-          grep -i -E "Viju|TV\s?1000|CineMan|Minimax|Amedia|START|KION|Dizi|Кинохит|Премьера|Киносемья|Кинокомедия|Megahit|Premiere|Hollywood|TV XXI|GoldLine" all_sources.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> personal_list.m3u
-
-          # Ищем Остальные (Спорт, Детские, Федеральные)
-          grep -i -E "Первый канал|Россия 1|Россия 24|НТВ|Матч|Футбол|Discovery|Animal Planet|Nat Geo|СТС|ТНТ|Пятница|2x2|Мульт|Карусель|4K|UHD" all_sources.tmp -A 1 --no-group-separator | grep -vE "^--$" | grep -vE "^#EXTM3U" >> personal_list.m3u
-
-          # Удаляем мусор
-          rm *.tmp
-
-      - name: Save and Push
-        run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "AutoUpdater"
-          git add personal_list.m3u
-          git commit -m "Auto-update playlist" || echo "No changes to commit"
+          git config --global user.name "NetErrror_Bot"
+          git config --global user.email "bot@neterror.sys"
+          git add playlist.m3u
+          git commit -m "Playlist Updated with Premium Channels" || exit 0
           git push
